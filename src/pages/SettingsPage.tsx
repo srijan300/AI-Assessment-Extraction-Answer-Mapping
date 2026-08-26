@@ -9,6 +9,10 @@ import {
   RefreshCw,
   CheckCircle2,
   AlertTriangle,
+  Building,
+  School,
+  Save,
+  Check,
 } from "lucide-react";
 import { useTheme, type Theme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
@@ -17,13 +21,27 @@ import { Button } from "../components/ui/Button";
 
 export const SettingsPage: React.FC = () => {
   const { theme, setTheme } = useTheme();
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
 
   const [healthStatus, setHealthStatus] = useState<HealthResponse | null>(null);
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
-  const [confidenceThreshold, setConfidenceThreshold] = useState<number>(0.75);
+  const [confidenceThreshold, setConfidenceThreshold] = useState<number>(0.70);
   const [autoOpenFirstAnswer, setAutoOpenFirstAnswer] = useState<boolean>(true);
   const [showAiFeedback, setShowAiFeedback] = useState<boolean>(true);
+
+  // Profile Form Local State
+  const [name, setName] = useState(user.name);
+  const [email, setEmail] = useState(user.email);
+  const [schoolName, setSchoolName] = useState(user.schoolName || "Delhi Public School, Bokaro Steel City");
+  const [classroom, setClassroom] = useState(user.classroom || "Grade 10 Mathematics");
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  useEffect(() => {
+    setName(user.name);
+    setEmail(user.email);
+    setSchoolName(user.schoolName || "Delhi Public School, Bokaro Steel City");
+    setClassroom(user.classroom || "Grade 10 Mathematics");
+  }, [user]);
 
   const fetchHealthDiagnostics = async () => {
     setIsCheckingHealth(true);
@@ -36,6 +54,18 @@ export const SettingsPage: React.FC = () => {
     fetchHealthDiagnostics();
   }, []);
 
+  const handleSaveProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateProfile({
+      name,
+      email,
+      schoolName,
+      classroom,
+    });
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 3000);
+  };
+
   return (
     <div className="flex-1 bg-zinc-50/60 dark:bg-zinc-950 p-4 sm:p-8 font-sans transition-colors duration-200 space-y-8 max-w-4xl">
       <div>
@@ -43,14 +73,107 @@ export const SettingsPage: React.FC = () => {
           Settings & Preferences
         </h1>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          Customize UI themes, assessment mapping confidence thresholds, and view AI system diagnostics
+          Customize UI themes, profile details, classroom settings, and assessment preferences
         </p>
       </div>
 
-      {/* 1. Appearance / Theme */}
+      {/* 1. Account Profile Settings */}
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-3xl p-6 shadow-xs space-y-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 flex items-center justify-center font-bold">
+              <User className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                Account & Classroom Profile
+              </h3>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                Update evaluator name, email, school institution, and classroom
+              </p>
+            </div>
+          </div>
+
+          {saveSuccess && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-600 dark:text-emerald-400 text-xs font-bold animate-fade-in">
+              <Check className="w-4 h-4" />
+              <span>Saved Successfully</span>
+            </div>
+          )}
+        </div>
+
+        <form onSubmit={handleSaveProfile} className="space-y-4 pt-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div className="space-y-1.5">
+              <label className="font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Full Name</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-medium focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                <Building className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Email Address</span>
+              </label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-medium focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                <School className="w-3.5 h-3.5 text-zinc-400" />
+                <span>School / Institution Name</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={schoolName}
+                onChange={(e) => setSchoolName(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-medium focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                <Sliders className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Classroom / Section</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={classroom}
+                onChange={(e) => setClassroom(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-medium focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <Button type="submit" size="md">
+              <Save className="w-4 h-4" />
+              <span>Save Profile Changes</span>
+            </Button>
+          </div>
+        </form>
+      </div>
+
+      {/* 2. Appearance / Theme */}
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-3xl p-6 shadow-xs space-y-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 flex items-center justify-center font-bold">
+          <div className="w-10 h-10 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
             <Sun className="w-5 h-5" />
           </div>
           <div>
@@ -86,45 +209,6 @@ export const SettingsPage: React.FC = () => {
               </button>
             );
           })}
-        </div>
-      </div>
-
-      {/* 2. Account Profile */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-3xl p-6 shadow-xs space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
-            <User className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-              Account Profile
-            </h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Evaluator account details
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 text-xs">
-          <div className="space-y-1">
-            <label className="font-semibold text-zinc-500 dark:text-zinc-400">Name</label>
-            <input
-              type="text"
-              readOnly
-              value={user?.name || "Teacher"}
-              className="w-full px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-medium"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="font-semibold text-zinc-500 dark:text-zinc-400">Email</label>
-            <input
-              type="text"
-              readOnly
-              value={user?.email || "teacher@evaluator.org"}
-              className="w-full px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-medium"
-            />
-          </div>
         </div>
       </div>
 
@@ -214,7 +298,7 @@ export const SettingsPage: React.FC = () => {
                 AI Service Diagnostics
               </h3>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Check backend Gemini model status without exposing secrets
+                Check backend Gemini API service status
               </p>
             </div>
           </div>
@@ -234,34 +318,25 @@ export const SettingsPage: React.FC = () => {
           <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/60 space-y-3 text-xs">
             <div className="flex items-center justify-between">
               <span className="font-semibold text-zinc-600 dark:text-zinc-400">
-                Gemini API Key Configured
+                Gemini API Service Status
               </span>
               {healthStatus.geminiConfigured ? (
                 <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold">
-                  <CheckCircle2 className="w-4 h-4" /> Configured
+                  <CheckCircle2 className="w-4 h-4" /> Operational & Configured
                 </span>
               ) : (
                 <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-bold">
-                  <AlertTriangle className="w-4 h-4" /> Not Configured (Using Demo Fallback)
+                  <AlertTriangle className="w-4 h-4" /> API Key Pending
                 </span>
               )}
             </div>
 
             <div className="flex items-center justify-between border-t border-zinc-200/60 dark:border-zinc-700/60 pt-2">
               <span className="font-semibold text-zinc-600 dark:text-zinc-400">
-                Active Gemini Model
-              </span>
-              <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">
-                {healthStatus.configuredModel}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between border-t border-zinc-200/60 dark:border-zinc-700/60 pt-2">
-              <span className="font-semibold text-zinc-600 dark:text-zinc-400">
-                SDK Client Initialized
+                SDK Engine Connection
               </span>
               <span className="font-bold text-zinc-900 dark:text-zinc-100">
-                {healthStatus.sdkInitialized ? "Yes (GoogleGenAI SDK)" : "No"}
+                {healthStatus.sdkInitialized ? "Connected (Active SDK)" : "Standby"}
               </span>
             </div>
           </div>

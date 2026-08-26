@@ -3,12 +3,13 @@ import multer from "multer";
 import { extractQuestionsFromPaper } from "../services/gemini/extractQuestions.js";
 import { extractAnswersFromSheet } from "../services/gemini/extractAnswers.js";
 import { mapQuestionsToAnswers } from "../services/gemini/mapAnswers.js";
-import { gradeStudentAnswer } from "../services/gemini/gradeAnswers.js";
+import { batchGradeMappedAnswers } from "../services/gemini/gradeAnswers.js";
 import { Assessment } from "../schemas/assessment.js";
+import { assessmentStorage } from "../services/storage.js";
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB limit
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB file limit
 });
 
 export const processRouter = Router();
@@ -33,7 +34,6 @@ processRouter.post(
       const qpFile = files["questionPaper"][0];
       const ansFile = files["answerSheet"][0];
 
-      // Validate MIME types
       const allowedTypes = [
         "application/pdf",
         "image/png",
@@ -56,45 +56,17 @@ processRouter.post(
         return;
       }
 
-      console.log(`[Process Pipeline] Received files: QP=${qpFile.originalname} (${qpFile.size}B), AS=${ansFile.originalname} (${ansFile.size}B)`);
+      const assessmentId = `assessment_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      console.log(`[Process Pipeline] Processing Assessment ${assessmentId}: QP=${qpFile.originalname}, AS=${ansFile.originalname}`);
 
-      // Stage 1 & 2: Extract Questions
-      const questions = await extractQuestionsFromPaper(
-        qpFile.buffer,
-        qpFile.mimetype,
-        qpFile.originalname
-      );
+      // Stage 1 & 2: Extract Questions and Handwritten Answers concurrently
+      const [questions, { answers, pageCount }] = await Promise.all([
+        extractQuestionsFromPaper(qpFile.buffer, qpFile.mimetype, qpFile.originalname),
+        extractAnswersFromSheet(ansFile.buffer, ansFile.mimetype, ansFile.originalname),
+      ]);
 
-      // Stage 3 & 4: Extract Answers & Regions
-      const { answers, pageCount } = await extractAnswersFromSheet(
-        ansFile.buffer,
-        ansFile.mimetype,
-        ansFile.originalname
-      );
-
-      // Stage 5 & 6: Map Answers
-      const { mappings, unmatchedAnswers } = mapQuestionsToAnswers(questions, answers);
-
-      // Stage 7: Grade Mapped Answers in Parallel
-      await Promise.all(
-        mappings.map(async (map) => {
-          if (map.answerId && map.status !== "unanswered") {
-            const q = questions.find((item) => item.id === map.questionId);
-            const a = answers.find((item) => item.id === map.answerId);
-
-            if (q && a) {
-              try {
-                const gradeRes = await gradeStudentAnswer(q, a);
-                map.awardedMarks = gradeRes.awardedMarks;
-                map.aiFeedback = gradeRes.aiFeedback;
-                map.correctness = gradeRes.correctness;
-              } catch (gradeErr) {
-                console.warn(`[Process Pipeline] Grading skipped for ${q.id}:`, gradeErr);
-              }
-            }
-          }
-        })
-      );
+      // Stage 3: Map Questions to Answers across all pages
+      const { mappings, unmatchedAnswers, finalAnswers } = mapQuestionsToAnswers(questions, answers, pageCount);
 
       // Compute Summary Statistics
       const totalQuestions = questions.length;
@@ -102,12 +74,18 @@ processRouter.post(
       const unanswered = mappings.filter((m) => m.status === "unanswered").length;
       const needsReview = mappings.filter((m) => m.status === "needs_review").length;
 
+      const cleanTitle = qpFile.originalname.replace(/\.[^/.]+$/, "").replace(/^\[.*?\]\s*/, "");
+
       const assessment: Assessment = {
-        id: `assessment_${Date.now()}`,
-        title: `${qpFile.originalname.replace(/\.[^/.]+$/, "")} Assessment`,
+        id: assessmentId,
+        title: `${cleanTitle} Assessment`,
         createdAt: new Date().toISOString(),
+        answerSheetUrl: `/api/assessments/${assessmentId}/answer-sheet`,
+        answerSheetMimeType: ansFile.mimetype,
+        questionPaperUrl: `/api/assessments/${assessmentId}/question-paper`,
+        questionPaperMimeType: qpFile.mimetype,
         questions,
-        answers,
+        answers: finalAnswers,
         mappings,
         unmatchedAnswers,
         summary: {
@@ -116,11 +94,37 @@ processRouter.post(
           unanswered,
           needsReview,
         },
-        answerSheetPagesCount: pageCount || 2,
+        answerSheetPagesCount: Math.max(1, pageCount),
       };
 
-      console.log(`[Process Pipeline] Complete: ${totalQuestions} Total, ${answered} Answered, ${unanswered} Unanswered, ${needsReview} Needs Review`);
+      // Save to persistent in-memory store
+      assessmentStorage.save({
+        id: assessmentId,
+        assessment,
+        questionPaper: {
+          buffer: qpFile.buffer,
+          mimeType: qpFile.mimetype,
+          filename: qpFile.originalname,
+        },
+        answerSheet: {
+          buffer: ansFile.buffer,
+          mimeType: ansFile.mimetype,
+          filename: ansFile.originalname,
+        },
+        createdAt: new Date().toISOString(),
+      });
 
+      // Trigger background AI grading asynchronously
+      batchGradeMappedAnswers(questions, finalAnswers, mappings)
+        .then(() => {
+          assessmentStorage.updateAssessment(assessmentId, assessment);
+          console.log(`[Process Pipeline] Async AI grading finished for ${assessmentId}.`);
+        })
+        .catch((err) => {
+          console.warn(`[Process Pipeline Warning] Async AI grading deferred:`, err?.message || err);
+        });
+
+      console.log(`[Process Pipeline] Ready: ${totalQuestions} Questions, ${answered} Answered, ${unanswered} Unanswered, ${needsReview} Needs Review.`);
       res.json(assessment);
     } catch (err: any) {
       console.error("Error processing assessment:", err);

@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { UploadCard } from "../components/upload/UploadCard";
 import { Button } from "../components/ui/Button";
 import type { FileItem, Assessment } from "../types/assessment";
-import { ArrowRight, Sparkles, AlertCircle } from "lucide-react";
+import { ArrowRight, AlertCircle } from "lucide-react";
 import { processAssessment } from "../lib/api";
 import { ProcessingScreen } from "../components/processing/ProcessingScreen";
 import { useAssessment } from "../context/AssessmentContext";
@@ -20,6 +20,21 @@ export const UploadPage: React.FC<UploadPageProps> = ({ onAssessmentComplete }) 
   const [ansFileItem, setAnsFileItem] = useState<FileItem | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [currentStageIndex, setCurrentStageIndex] = useState(0);
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    if (isProcessing) {
+      setCurrentStageIndex(0);
+      interval = setInterval(() => {
+        setCurrentStageIndex((prev) => {
+          if (prev < 6) return prev + 1;
+          return prev;
+        });
+      }, 600);
+    }
+    return () => clearInterval(interval);
+  }, [isProcessing]);
 
   const handleQpSelect = (file: File) => {
     setErrorMessage(null);
@@ -50,19 +65,9 @@ export const UploadPage: React.FC<UploadPageProps> = ({ onAssessmentComplete }) 
     setIsProcessing(true);
 
     try {
-      // Generate object URLs for actual uploaded files so viewer renders real documents
-      const ansUrl = URL.createObjectURL(ansFileItem.file);
-      const qpUrl = URL.createObjectURL(qpFileItem.file);
-
       const assessmentData = await processAssessment(qpFileItem.file, ansFileItem.file);
 
-      // Attach actual file blob URLs and mime types
-      assessmentData.answerSheetUrl = ansUrl;
-      assessmentData.answerSheetMimeType = ansFileItem.file.type;
-      assessmentData.questionPaperUrl = qpUrl;
-      assessmentData.questionPaperMimeType = qpFileItem.file.type;
-
-      // Save to real session assessments context
+      setCurrentStageIndex(7);
       addAssessment(assessmentData);
 
       if (onAssessmentComplete) {
@@ -70,44 +75,57 @@ export const UploadPage: React.FC<UploadPageProps> = ({ onAssessmentComplete }) 
       }
 
       setIsProcessing(false);
-      navigate(`/exams/${assessmentData.id}`);
+      navigate(`/exams/assessment/${assessmentData.id}`);
     } catch (err: any) {
       setIsProcessing(false);
       setErrorMessage(
-        err.message || "An error occurred during AI processing. Please try again."
+        err.message || "An error occurred during AI processing. Please check file format and try again."
       );
     }
   };
 
   if (isProcessing) {
-    return <ProcessingScreen currentStageIndex={3} />;
+    return <ProcessingScreen currentStageIndex={currentStageIndex} />;
   }
 
   const isReady = Boolean(qpFileItem && ansFileItem);
 
   return (
     <div className="flex-1 bg-gradient-to-b from-zinc-50 via-white to-zinc-50 dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-950 flex flex-col items-center justify-center p-4 sm:p-8 min-h-[calc(100vh-4rem)] font-sans transition-colors duration-200">
-      <div className="max-w-3xl w-full flex flex-col items-center text-center space-y-8">
-        {/* Title & Subtitle */}
-        <div className="space-y-3">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-zinc-900 dark:bg-zinc-800 text-white text-xs font-semibold shadow-sm mb-1">
-            <Sparkles className="w-3.5 h-3.5 text-orange-400" />
-            <span>Step 1: Upload Documents</span>
-          </div>
+      <div className="max-w-3xl w-full flex flex-col items-center text-center space-y-6">
+        
+        {/* Central AI Avatar Graphic Badge */}
+        <div className="relative flex items-center justify-center my-2">
+          <div className="absolute w-28 h-28 rounded-full bg-orange-500/10 dark:bg-orange-500/20 animate-ping opacity-75" />
+          <div className="absolute w-24 h-24 rounded-full bg-orange-400/20 dark:bg-orange-500/30 blur-sm" />
 
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight">
+          <div className="relative w-20 h-20 rounded-full bg-gradient-to-tr from-orange-500 via-amber-500 to-orange-400 p-1 shadow-lg shadow-orange-500/30 flex items-center justify-center">
+            <img
+              src="/assets/ai_teacher_avatar.png"
+              alt="AI Assessment Pipeline"
+              className="w-full h-full object-cover rounded-full border-2 border-white/80 dark:border-zinc-900"
+              onError={(e) => {
+                (e.target as HTMLElement).style.display = "none";
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Title Header with Highlighted Pill */}
+        <div className="space-y-2 max-w-xl">
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight leading-tight">
             Upload{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-amber-500">
-              Question Paper & Answer Sheet
+            <span className="bg-orange-100 dark:bg-orange-950/80 text-orange-600 dark:text-orange-400 px-3 py-1 rounded-2xl inline-block border border-orange-200/80 dark:border-orange-800/60">
+              Question Paper & Answer Sheets
             </span>
           </h1>
-          <p className="text-xs sm:text-sm font-medium text-zinc-500 dark:text-zinc-400 max-w-md mx-auto">
-            Upload both documents to run automated question extraction, student answer region detection, and visual mapping.
+          <p className="text-xs sm:text-sm font-medium text-zinc-500 dark:text-zinc-400">
+            Upload both files to get started with automated extraction & mapping
           </p>
         </div>
 
         {/* Dual Upload Dropzone Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-2xl pt-2">
           <UploadCard
             title="Upload Question Paper"
             subtitle="PDF, PNG, JPG (Max 25MB)"
@@ -138,15 +156,11 @@ export const UploadPage: React.FC<UploadPageProps> = ({ onAssessmentComplete }) 
             size="lg"
             disabled={!isReady}
             onClick={handleStartProcess}
-            className="w-56 shadow-md hover:scale-105 active:scale-95 transition-all"
+            className="w-56 shadow-md hover:scale-105 active:scale-95 transition-all font-bold text-sm bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-zinc-900"
           >
             <span>Start Mapping</span>
             <ArrowRight className="w-4 h-4 ml-1" />
           </Button>
-
-          <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium">
-            Once both files are uploaded, click Start Mapping to process.
-          </p>
         </div>
       </div>
     </div>

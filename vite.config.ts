@@ -11,6 +11,14 @@ export default defineConfig({
       '@': path.resolve(import.meta.dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      external: ['canvas'],
+    },
+    rolldownOptions: {
+      external: ['canvas'],
+    },
+  } as any,
   server: {
     proxy: {
       '/api': {

@@ -10,6 +10,7 @@ import {
   X,
   UserCheck,
 } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 
 interface SidebarProps {
   isMobileOpen?: boolean;
@@ -20,6 +21,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isMobileOpen = false,
   onMobileClose,
 }) => {
+  const { user } = useAuth();
+
   const navItems = [
     { to: "/home", label: "Home", icon: LayoutGrid },
     { to: "/courses", label: "My Courses", icon: BookOpen },
@@ -85,7 +88,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
       </div>
 
-      {/* Footer / Settings & Neutral Evaluator Badge */}
+      {/* Footer / Settings & Dynamic School Card */}
       <div className="space-y-3 pt-4 border-t border-zinc-100 dark:border-zinc-800">
         <NavLink
           to="/settings"
@@ -110,17 +113,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </NavLink>
 
-        {/* Neutral Role Card */}
+        {/* Dynamic User & School Card */}
         <div className="bg-zinc-50 dark:bg-zinc-800/60 rounded-2xl p-3 border border-zinc-200/60 dark:border-zinc-700/60 flex items-center gap-3">
           <div className="w-8 h-8 rounded-xl bg-orange-100 dark:bg-orange-950/60 border border-orange-200 dark:border-orange-900 flex items-center justify-center text-orange-600 dark:text-orange-400 shrink-0">
             <UserCheck className="w-4 h-4" />
           </div>
           <div className="overflow-hidden">
-            <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate">
-              Teacher Portal
+            <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate" title={user.schoolName}>
+              {user.schoolName || "Delhi Public School"}
             </h4>
-            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
-              Assessment Evaluator
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate" title={`${user.classroom} • ${user.name}`}>
+              {user.classroom || "Grade 10 Mathematics"}
             </p>
           </div>
         </div>

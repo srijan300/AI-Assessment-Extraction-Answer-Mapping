@@ -3,20 +3,11 @@ import { FileText, Download, FolderOpen, ExternalLink } from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { useAssessment } from "../context/AssessmentContext";
 import { useNavigate } from "react-router-dom";
+import { exportAssessmentReportToPdf } from "../lib/pdfExporter";
 
 export const LibraryPage: React.FC = () => {
   const { assessments } = useAssessment();
   const navigate = useNavigate();
-
-  const handleDownload = (url?: string, filename = "answer_sheet.pdf") => {
-    if (!url) return;
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
 
   return (
     <div className="flex-1 bg-zinc-50/60 dark:bg-zinc-950 p-4 sm:p-8 font-sans transition-colors duration-200 space-y-6">
@@ -56,7 +47,7 @@ export const LibraryPage: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                    {asm.title || "Uploaded Assessment Documents"}
+                    {asm.title ? asm.title.replace(/^\[.*?\]\s*/, "") : "Uploaded Assessment Documents"}
                   </h3>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
                     Answer Sheet ({asm.answerSheetPagesCount || 1} Pages) • Uploaded on{" "}
@@ -65,25 +56,24 @@ export const LibraryPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => navigate(`/exams/${asm.id}`)}
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Open</span>
+                  <span>Open Workspace</span>
                 </Button>
-                {asm.answerSheetUrl && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleDownload(asm.answerSheetUrl, `${asm.id}_answersheet`)}
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Download</span>
-                  </Button>
-                )}
+
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => exportAssessmentReportToPdf(asm)}
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download Report PDF</span>
+                </Button>
               </div>
             </div>
           ))}

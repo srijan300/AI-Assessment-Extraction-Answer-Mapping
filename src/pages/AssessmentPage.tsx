@@ -1,11 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import type { Assessment, Answer } from "../types/assessment";
 import { SummaryHeader } from "../components/assessment/SummaryHeader";
 import { QuestionList } from "../components/assessment/QuestionList";
 import { DocumentViewer } from "../components/answer-viewer/DocumentViewer";
 import { useAssessment } from "../context/AssessmentContext";
-import { FolderOpen, ArrowLeft } from "lucide-react";
+import { fetchAssessmentById } from "../lib/api";
+import { FolderOpen, ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "../components/ui/Button";
 
 interface AssessmentPageProps {
@@ -17,12 +18,45 @@ export const AssessmentPage: React.FC<AssessmentPageProps> = ({
 }) => {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
-  const { getAssessmentById } = useAssessment();
+  const { getAssessmentById, addAssessment } = useAssessment();
 
-  // Find actual assessment from context or prop
-  const currentAssessment = propAssessment || (examId ? getAssessmentById(examId) : undefined);
+  const [assessment, setAssessment] = useState<Assessment | null>(
+    propAssessment || (examId ? getAssessmentById(examId) || null : null)
+  );
+  const [isLoading, setIsLoading] = useState<boolean>(!assessment && Boolean(examId));
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  if (!currentAssessment) {
+  useEffect(() => {
+    if (!assessment && examId) {
+      setIsLoading(true);
+      fetchAssessmentById(examId)
+        .then((data) => {
+          setAssessment(data);
+          addAssessment(data);
+          setIsLoading(false);
+        })
+        .catch((err) => {
+          console.error("Failed to load assessment by ID:", err);
+          setErrorMessage(err?.message || "Assessment not found");
+          setIsLoading(false);
+        });
+    }
+  }, [examId]);
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 bg-zinc-50/60 dark:bg-zinc-950 p-4 sm:p-8 font-sans flex flex-col items-center justify-center min-h-[calc(100vh-4rem)]">
+        <div className="flex flex-col items-center justify-center space-y-3">
+          <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
+          <p className="text-sm font-semibold text-zinc-600 dark:text-zinc-400">
+            Loading assessment workspace...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!assessment || errorMessage) {
     return (
       <div className="flex-1 bg-zinc-50/60 dark:bg-zinc-950 p-4 sm:p-8 font-sans flex flex-col items-center justify-center min-h-[calc(100vh-4rem)]">
         <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-3xl p-10 text-center flex flex-col items-center justify-center max-w-md w-full space-y-4 shadow-xs">
@@ -34,7 +68,7 @@ export const AssessmentPage: React.FC<AssessmentPageProps> = ({
               Assessment not found
             </h3>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-              The requested assessment ID does not exist or has not been processed in this session.
+              {errorMessage || "The requested assessment ID does not exist or has expired."}
             </p>
           </div>
           <Button size="md" onClick={() => navigate("/exams")} className="mt-2">
@@ -46,7 +80,7 @@ export const AssessmentPage: React.FC<AssessmentPageProps> = ({
     );
   }
 
-  return <AssessmentWorkspace assessment={currentAssessment} />;
+  return <AssessmentWorkspace assessment={assessment} />;
 };
 
 const AssessmentWorkspace: React.FC<{ assessment: Assessment }> = ({ assessment }) => {
@@ -88,6 +122,7 @@ const AssessmentWorkspace: React.FC<{ assessment: Assessment }> = ({ assessment 
         summary={assessment.summary}
         answerSheetUrl={assessment.answerSheetUrl}
         assessmentTitle={assessment.title}
+        assessment={assessment}
       />
 
       {/* Mobile Tab Switcher */}

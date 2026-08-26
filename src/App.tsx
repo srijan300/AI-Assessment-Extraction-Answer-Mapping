@@ -114,6 +114,15 @@ export function App() {
               />
 
               <Route
+                path="/exams/assessment/:examId"
+                element={
+                  <AppLayout>
+                    <AssessmentPage />
+                  </AppLayout>
+                }
+              />
+
+              <Route
                 path="/library"
                 element={
                   <AppLayout>

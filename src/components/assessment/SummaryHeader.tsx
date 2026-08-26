@@ -1,39 +1,27 @@
 import React from "react";
 import { CheckCircle2, AlertCircle, HelpCircle, FileText, Download } from "lucide-react";
-import type { AssessmentSummary } from "../../types/assessment";
+import type { Assessment, AssessmentSummary } from "../../types/assessment";
 import { Button } from "../ui/Button";
+import { exportAssessmentReportToPdf, downloadDocumentAsPdf } from "../../lib/pdfExporter";
 
 interface SummaryHeaderProps {
   summary: AssessmentSummary;
   answerSheetUrl?: string;
   assessmentTitle?: string;
+  assessment?: Assessment;
 }
 
 export const SummaryHeader: React.FC<SummaryHeaderProps> = ({
   summary,
   answerSheetUrl,
   assessmentTitle = "Assessment Evaluation",
+  assessment,
 }) => {
   const handleDownloadPdf = () => {
-    if (answerSheetUrl) {
-      const a = document.createElement("a");
-      a.href = answerSheetUrl;
-      a.download = `${assessmentTitle.replace(/\s+/g, "_")}_AnswerSheet.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } else {
-      // Generate a dynamic PDF report blob
-      const reportText = `VedaAI Assessment Report: ${assessmentTitle}\nTotal Questions: ${summary.totalQuestions}\nAnswered: ${summary.answered}\nUnanswered: ${summary.unanswered}\nNeeds Review: ${summary.needsReview}`;
-      const blob = new Blob([reportText], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${assessmentTitle.replace(/\s+/g, "_")}_Report.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+    if (assessment) {
+      exportAssessmentReportToPdf(assessment);
+    } else if (answerSheetUrl) {
+      downloadDocumentAsPdf(answerSheetUrl, `${assessmentTitle.replace(/\s+/g, "_")}_AnswerSheet.pdf`);
     }
   };
 
@@ -45,7 +33,7 @@ export const SummaryHeader: React.FC<SummaryHeaderProps> = ({
         </div>
         <div>
           <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-            Assessment Overview
+            {assessmentTitle}
           </h2>
           <p className="text-xs text-zinc-400 dark:text-zinc-500">
             Click any question to view its mapped answer region on the handwritten answer sheet

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Plus, FolderOpen, BookOpen, Users, ArrowRight, X } from "lucide-react";
+import { Plus, FolderOpen, BookOpen, Users, ArrowRight, X, Trash2 } from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { useNavigate } from "react-router-dom";
 
@@ -11,12 +11,50 @@ interface CourseItem {
   assessmentsCount: number;
 }
 
+const DEFAULT_COURSES: CourseItem[] = [
+  {
+    id: "course_default_1",
+    name: "Grade 10 Mathematics - Section A",
+    code: "MATH-101",
+    studentsCount: 32,
+    assessmentsCount: 4,
+  },
+  {
+    id: "course_default_2",
+    name: "Physics - Advanced Mechanics",
+    code: "PHY-202",
+    studentsCount: 28,
+    assessmentsCount: 2,
+  },
+];
+
 export const CoursesPage: React.FC = () => {
   const navigate = useNavigate();
-  const [courses, setCourses] = useState<CourseItem[]>([]);
+  const [courses, setCourses] = useState<CourseItem[]>(() => {
+    try {
+      const saved = localStorage.getItem("veda_courses_list");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn("Failed to load courses from storage", e);
+    }
+    return DEFAULT_COURSES;
+  });
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [courseName, setCourseName] = useState("");
   const [courseCode, setCourseCode] = useState("");
+
+  const saveCoursesToStorage = (updatedCourses: CourseItem[]) => {
+    setCourses(updatedCourses);
+    try {
+      localStorage.setItem("veda_courses_list", JSON.stringify(updatedCourses));
+    } catch (e) {
+      console.warn("Failed to save courses to storage", e);
+    }
+  };
 
   const handleAddCourse = (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,14 +64,20 @@ export const CoursesPage: React.FC = () => {
       id: `course_${Date.now()}`,
       name: courseName.trim(),
       code: courseCode.trim() || `SEC-${Math.floor(100 + Math.random() * 900)}`,
-      studentsCount: Math.floor(20 + Math.random() * 15),
+      studentsCount: Math.floor(25 + Math.random() * 10),
       assessmentsCount: 0,
     };
 
-    setCourses((prev) => [newCourse, ...prev]);
+    const updated = [newCourse, ...courses];
+    saveCoursesToStorage(updated);
     setCourseName("");
     setCourseCode("");
     setIsModalOpen(false);
+  };
+
+  const handleDeleteCourse = (id: string) => {
+    const updated = courses.filter((c) => c.id !== id);
+    saveCoursesToStorage(updated);
   };
 
   return (
@@ -41,7 +85,7 @@ export const CoursesPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight">
-            My Courses
+            My Courses & Classrooms
           </h1>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
             Manage subject sections and student evaluation rosters
@@ -60,7 +104,7 @@ export const CoursesPage: React.FC = () => {
           </div>
           <div className="space-y-1">
             <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-              No courses added yet
+              No courses created yet
             </h3>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
               Create your subject sections to organize assessments and student rosters.
@@ -76,17 +120,26 @@ export const CoursesPage: React.FC = () => {
           {courses.map((course) => (
             <div
               key={course.id}
-              className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-3xl p-6 shadow-xs flex flex-col justify-between space-y-4 hover:border-orange-500/40 transition-all"
+              className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-3xl p-6 shadow-xs flex flex-col justify-between space-y-4 hover:border-orange-500/40 transition-all group relative"
             >
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-mono font-bold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/80 px-2.5 py-1 rounded-lg border border-orange-200 dark:border-orange-900">
                     {course.code}
                   </span>
-                  <span className="text-xs text-zinc-400 flex items-center gap-1 font-semibold">
-                    <Users className="w-3.5 h-3.5" />
-                    {course.studentsCount} Students
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-zinc-400 flex items-center gap-1 font-semibold">
+                      <Users className="w-3.5 h-3.5" />
+                      {course.studentsCount} Students
+                    </span>
+                    <button
+                      onClick={() => handleDeleteCourse(course.id)}
+                      className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-rose-500 transition-opacity"
+                      title="Delete Course"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100 pt-1">

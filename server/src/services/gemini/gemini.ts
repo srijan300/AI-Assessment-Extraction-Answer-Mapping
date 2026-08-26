@@ -14,7 +14,19 @@ export function getGeminiClient(): GoogleGenAI | null {
 }
 
 export function getGeminiModel(): string {
-  return process.env.GEMINI_MODEL || "gemini-3.6-flash";
+  return process.env.GEMINI_MODEL || "gemini-2.5-flash";
+}
+
+export function getVisionModel(): string {
+  return process.env.GEMINI_VISION_MODEL || process.env.GEMINI_MODEL || "gemini-2.5-flash";
+}
+
+export function getFastModel(): string {
+  return process.env.GEMINI_FAST_MODEL || process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+}
+
+export function getGradingModel(): string {
+  return process.env.GEMINI_GRADING_MODEL || process.env.GEMINI_MODEL || "gemini-2.5-flash";
 }
 
 export function getGeminiStatus(): {

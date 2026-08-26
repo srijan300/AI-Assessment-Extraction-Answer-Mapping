@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Plus, FolderOpen, FileCheck, UploadCloud, ArrowRight, X } from "lucide-react";
+import { Plus, FolderOpen, FileCheck, UploadCloud, ArrowRight, X, Trash2 } from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { useNavigate } from "react-router-dom";
 
@@ -11,12 +11,50 @@ interface AssignmentItem {
   submissionsCount: number;
 }
 
+const DEFAULT_ASSIGNMENTS: AssignmentItem[] = [
+  {
+    id: "assign_default_1",
+    title: "Unit Test 1 - Handwritten Answer Evaluation",
+    subject: "Mathematics",
+    dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+    submissionsCount: 1,
+  },
+  {
+    id: "assign_default_2",
+    title: "Midterm Physics Assessment",
+    subject: "Physics",
+    dueDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+    submissionsCount: 3,
+  },
+];
+
 export const AssignmentsPage: React.FC = () => {
   const navigate = useNavigate();
-  const [assignments, setAssignments] = useState<AssignmentItem[]>([]);
+  const [assignments, setAssignments] = useState<AssignmentItem[]>(() => {
+    try {
+      const saved = localStorage.getItem("veda_assignments_list");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn("Failed to load assignments from storage", e);
+    }
+    return DEFAULT_ASSIGNMENTS;
+  });
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
+
+  const saveAssignmentsToStorage = (updatedAssignments: AssignmentItem[]) => {
+    setAssignments(updatedAssignments);
+    try {
+      localStorage.setItem("veda_assignments_list", JSON.stringify(updatedAssignments));
+    } catch (e) {
+      console.warn("Failed to save assignments to storage", e);
+    }
+  };
 
   const handleAddAssignment = (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,10 +68,16 @@ export const AssignmentsPage: React.FC = () => {
       submissionsCount: 1,
     };
 
-    setAssignments((prev) => [newAssignment, ...prev]);
+    const updated = [newAssignment, ...assignments];
+    saveAssignmentsToStorage(updated);
     setTitle("");
     setSubject("");
     setIsModalOpen(false);
+  };
+
+  const handleDeleteAssignment = (id: string) => {
+    const updated = assignments.filter((a) => a.id !== id);
+    saveAssignmentsToStorage(updated);
   };
 
   return (
@@ -41,7 +85,7 @@ export const AssignmentsPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight">
-            Assignments
+            Assignments & Classrooms
           </h1>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
             Track student handwritten submissions and mapping evaluations
@@ -76,7 +120,7 @@ export const AssignmentsPage: React.FC = () => {
           {assignments.map((item) => (
             <div
               key={item.id}
-              className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-3xl p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+              className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-3xl p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-orange-500/40 transition-all"
             >
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0">
@@ -93,6 +137,13 @@ export const AssignmentsPage: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleDeleteAssignment(item.id)}
+                  className="opacity-0 group-hover:opacity-100 p-2 text-zinc-400 hover:text-rose-500 transition-opacity"
+                  title="Delete Assignment"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
                 <Button size="sm" onClick={() => navigate("/exams/upload")}>
                   <UploadCloud className="w-3.5 h-3.5" />
                   <span>Evaluate Submission</span>
