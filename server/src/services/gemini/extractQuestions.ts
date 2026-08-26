@@ -58,49 +58,59 @@ Return ONLY valid JSON matching this schema:
   ]
 }`;
 
-    for (const model of Array.from(new Set(modelsToTry))) {
-      try {
-        const response = await ai.models.generateContent({
-          model: model,
-          contents: [
-            {
-              role: "user",
-              parts: [
-                { inlineData: { data: base64Data, mimeType } },
-                { text: prompt },
-              ],
+    const geminiPromise = (async (): Promise<Question[] | null> => {
+      for (const model of Array.from(new Set(modelsToTry))) {
+        try {
+          const response = await ai.models.generateContent({
+            model: model,
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  { inlineData: { data: base64Data, mimeType } },
+                  { text: prompt },
+                ],
+              },
+            ],
+            config: {
+              responseMimeType: "application/json",
+              maxOutputTokens: 32768,
+              temperature: 0.1,
             },
-          ],
-          config: {
-            responseMimeType: "application/json",
-            maxOutputTokens: 32768,
-            temperature: 0.1,
-          },
-        });
+          });
 
-        const text = response.text || "";
-        const cleanText = text.replace(/```json/gi, "").replace(/```/g, "").trim();
-        const parsedJson = JSON.parse(cleanText);
-        const validated = QuestionsResponseSchema.safeParse(parsedJson);
+          const text = response.text || "";
+          const cleanText = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+          const parsedJson = JSON.parse(cleanText);
+          const validated = QuestionsResponseSchema.safeParse(parsedJson);
 
-        if (validated.success && validated.data.questions.length > 0) {
-          const sanitizedQuestions = validated.data.questions.filter(
-            (q) => !isPdfBinaryArtifact(q.text) && q.text.trim().length > 3
-          );
-
-          if (sanitizedQuestions.length > 0) {
-            console.log(
-              `[Gemini Question Extraction] Successfully extracted ${sanitizedQuestions.length} questions using '${model}'.`
+          if (validated.success && validated.data.questions.length > 0) {
+            const sanitizedQuestions = validated.data.questions.filter(
+              (q) => !isPdfBinaryArtifact(q.text) && q.text.trim().length > 3
             );
-            return sanitizedQuestions;
+
+            if (sanitizedQuestions.length > 0) {
+              console.log(
+                `[Gemini Question Extraction] Successfully extracted ${sanitizedQuestions.length} questions using '${model}'.`
+              );
+              return sanitizedQuestions;
+            }
           }
+        } catch (err: any) {
+          console.warn(
+            `[Gemini Question Extraction Warning] Model '${model}' failed:`,
+            err?.status || err?.message || err
+          );
         }
-      } catch (err: any) {
-        console.warn(
-          `[Gemini Question Extraction Warning] Model '${model}' failed:`,
-          err?.status || err?.message || err
-        );
       }
+      return null;
+    })();
+
+    const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 5500));
+
+    const result = await Promise.race([geminiPromise, timeoutPromise]);
+    if (result && result.length > 0) {
+      return result;
     }
   }
 

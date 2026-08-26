@@ -86,50 +86,60 @@ Return ONLY valid JSON matching this schema:
   ]
 }`;
 
-    for (const model of Array.from(new Set(modelsToTry))) {
-      try {
-        const response = await ai.models.generateContent({
-          model: model,
-          contents: [
-            {
-              role: "user",
-              parts: [
-                { inlineData: { data: base64Data, mimeType } },
-                { text: prompt },
-              ],
+    const geminiPromise = (async (): Promise<{ answers: Answer[]; pageCount: number } | null> => {
+      for (const model of Array.from(new Set(modelsToTry))) {
+        try {
+          const response = await ai.models.generateContent({
+            model: model,
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  { inlineData: { data: base64Data, mimeType } },
+                  { text: prompt },
+                ],
+              },
+            ],
+            config: {
+              responseMimeType: "application/json",
+              maxOutputTokens: 32768,
+              temperature: 0.1,
             },
-          ],
-          config: {
-            responseMimeType: "application/json",
-            maxOutputTokens: 32768,
-            temperature: 0.1,
-          },
-        });
+          });
 
-        const text = response.text || "";
-        const cleanText = text.replace(/```json/gi, "").replace(/```/g, "").trim();
-        const parsedJson = JSON.parse(cleanText);
-        const validated = AnswersResponseSchema.safeParse(parsedJson);
+          const text = response.text || "";
+          const cleanText = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+          const parsedJson = JSON.parse(cleanText);
+          const validated = AnswersResponseSchema.safeParse(parsedJson);
 
-        if (validated.success && validated.data.answers.length > 0) {
-          const maxDetectedPage = Math.max(
-            pageCount,
-            ...validated.data.answers.flatMap((a) => a.regions.map((r) => r.page || 1))
+          if (validated.success && validated.data.answers.length > 0) {
+            const maxDetectedPage = Math.max(
+              pageCount,
+              ...validated.data.answers.flatMap((a) => a.regions.map((r) => r.page || 1))
+            );
+            console.log(
+              `[Gemini Answer Extraction] Successfully extracted ${validated.data.answers.length} handwritten answers across ${maxDetectedPage} pages using '${model}'.`
+            );
+            return {
+              answers: validated.data.answers,
+              pageCount: maxDetectedPage,
+            };
+          }
+        } catch (err: any) {
+          console.warn(
+            `[Gemini Answer Extraction Warning] Model '${model}' failed:`,
+            err?.status || err?.message || err
           );
-          console.log(
-            `[Gemini Answer Extraction] Successfully extracted ${validated.data.answers.length} handwritten answers across ${maxDetectedPage} pages using '${model}'.`
-          );
-          return {
-            answers: validated.data.answers,
-            pageCount: maxDetectedPage,
-          };
         }
-      } catch (err: any) {
-        console.warn(
-          `[Gemini Answer Extraction Warning] Model '${model}' failed:`,
-          err?.status || err?.message || err
-        );
       }
+      return null;
+    })();
+
+    const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 5500));
+
+    const result = await Promise.race([geminiPromise, timeoutPromise]);
+    if (result && result.answers && result.answers.length > 0) {
+      return result;
     }
   }
 
