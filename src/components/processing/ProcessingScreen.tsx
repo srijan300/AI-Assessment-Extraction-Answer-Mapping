@@ -2,27 +2,26 @@ import React from "react";
 import { Check, Sparkles, Loader2 } from "lucide-react";
 
 interface ProcessingScreenProps {
-  currentStageIndex: number;
+  stageIndex: number;
+  progress: number;
+  stageMessage?: string;
 }
 
 export const ProcessingScreen: React.FC<ProcessingScreenProps> = ({
-  currentStageIndex,
+  stageIndex,
+  progress,
+  stageMessage,
 }) => {
   const stages = [
-    { title: "Reading Question Paper", desc: "Parsing PDF & vision layout" },
-    { title: "Extracting Questions", desc: "Preserving subparts & order" },
-    { title: "Reading Answer Sheet", desc: "Analyzing student handwriting" },
-    { title: "Detecting Handwritten Answers", desc: "Bounding full response blocks" },
-    { title: "Mapping Answers to Questions", desc: "Matching explicit & semantic IDs" },
-    { title: "Identifying Bounding Regions", desc: "Calculating normalized coordinates" },
-    { title: "Preparing Interactive Viewer", desc: "Rendering responsive overlays" },
+    { title: "Queued for Processing", desc: "Initiating job pipeline" },
+    { title: "Extracting Questions", desc: "Parsing PDF & vision layout" },
+    { title: "Reading Answer Sheet", desc: "Extracting student handwriting" },
+    { title: "Mapping Answers to Questions", desc: "Matching explicit & position IDs" },
+    { title: "Evaluating & Grading", desc: "Calculating accuracy & AI feedback" },
     { title: "Assessment Ready", desc: "Finalizing scorecards & summary" },
   ];
 
-  const progressPercent = Math.min(
-    100,
-    Math.round(((currentStageIndex + 1) / stages.length) * 100)
-  );
+  const safeProgress = Math.min(100, Math.max(0, progress));
 
   return (
     <div className="flex-1 bg-gradient-to-b from-zinc-50 via-white to-zinc-50 dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-950 flex flex-col items-center justify-center p-6 min-h-[calc(100vh-4rem)] font-sans transition-colors duration-200">
@@ -36,31 +35,31 @@ export const ProcessingScreen: React.FC<ProcessingScreenProps> = ({
             Mapping Assessment...
           </h2>
           <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-            Multimodal Gemini Vision Pipeline in progress
+            {stageMessage || "Multimodal Gemini Vision Pipeline in progress"}
           </p>
         </div>
 
-        {/* Progress Bar */}
+        {/* Real Progress Bar */}
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs font-bold text-zinc-700 dark:text-zinc-300">
             <span>Overall Progress</span>
             <span className="font-mono text-orange-600 dark:text-orange-400">
-              {progressPercent}%
+              {safeProgress}%
             </span>
           </div>
           <div className="w-full bg-zinc-100 dark:bg-zinc-800 h-2.5 rounded-full overflow-hidden p-0.5 border border-zinc-200/60 dark:border-zinc-700">
             <div
               className="bg-gradient-to-r from-orange-500 to-amber-500 h-full rounded-full transition-all duration-300 shadow-sm"
-              style={{ width: `${progressPercent}%` }}
+              style={{ width: `${safeProgress}%` }}
             />
           </div>
         </div>
 
-        {/* Vertical Pipeline Checklist */}
+        {/* Real Stage Checklist */}
         <div className="space-y-3 pt-2">
           {stages.map((stage, idx) => {
-            const isDone = idx < currentStageIndex;
-            const isCurrent = idx === currentStageIndex;
+            const isDone = idx < stageIndex;
+            const isCurrent = idx === stageIndex;
 
             return (
               <div

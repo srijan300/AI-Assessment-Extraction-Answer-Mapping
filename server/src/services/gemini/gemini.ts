@@ -8,7 +8,7 @@ export function getGeminiClient(): GoogleGenAI | null {
   try {
     return new GoogleGenAI({ apiKey });
   } catch (err) {
-    console.error("[Gemini SDK] Initialization error:", err);
+    console.error("[Gemini SDK] Initialization error: Failed to construct client instance.");
     return null;
   }
 }
@@ -43,4 +43,41 @@ export function getGeminiStatus(): {
     configuredModel: getGeminiModel(),
     sdkInitialized: client !== null,
   };
+}
+
+export async function callGeminiWithRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 2
+): Promise<T> {
+  let attempt = 0;
+  let delayMs = 1000;
+
+  while (attempt <= maxRetries) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      attempt++;
+      const status = err?.status || err?.statusCode || 500;
+      const isTransient =
+        status === 429 ||
+        status === 503 ||
+        status === 504 ||
+        (err?.message &&
+          (err.message.includes("RESOURCE_EXHAUSTED") ||
+            err.message.includes("DEADLINE_EXCEEDED") ||
+            err.message.includes("fetch failed")));
+
+      if (attempt > maxRetries || !isTransient) {
+        throw err;
+      }
+
+      console.warn(
+        `[Gemini Retry] Attempt ${attempt} failed with status ${status}. Retrying in ${delayMs}ms...`
+      );
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      delayMs *= 2;
+    }
+  }
+
+  throw new Error("Gemini API call failed after retries.");
 }

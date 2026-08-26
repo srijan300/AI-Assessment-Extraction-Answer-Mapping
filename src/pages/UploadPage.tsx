@@ -2,39 +2,25 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { UploadCard } from "../components/upload/UploadCard";
 import { Button } from "../components/ui/Button";
-import type { FileItem, Assessment } from "../types/assessment";
-import { ArrowRight, AlertCircle } from "lucide-react";
-import { processAssessment } from "../lib/api";
-import { ProcessingScreen } from "../components/processing/ProcessingScreen";
-import { useAssessment } from "../context/AssessmentContext";
+import type { FileItem } from "../types/assessment";
+import { ArrowRight, AlertCircle, Loader2, Sparkles } from "lucide-react";
+import { startAssessmentJob } from "../lib/api";
 
-interface UploadPageProps {
-  onAssessmentComplete?: (assessment: Assessment) => void;
-}
-
-export const UploadPage: React.FC<UploadPageProps> = ({ onAssessmentComplete }) => {
+export const UploadPage: React.FC = () => {
   const navigate = useNavigate();
-  const { addAssessment } = useAssessment();
 
   const [qpFileItem, setQpFileItem] = useState<FileItem | null>(null);
   const [ansFileItem, setAnsFileItem] = useState<FileItem | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [currentStageIndex, setCurrentStageIndex] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
 
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-    if (isProcessing) {
-      setCurrentStageIndex(0);
-      interval = setInterval(() => {
-        setCurrentStageIndex((prev) => {
-          if (prev < 6) return prev + 1;
-          return prev;
-        });
-      }, 600);
+    const savedJobId = localStorage.getItem("active_assessment_job_id");
+    if (savedJobId) {
+      setActiveJobId(savedJobId);
     }
-    return () => clearInterval(interval);
-  }, [isProcessing]);
+  }, []);
 
   const handleQpSelect = (file: File) => {
     setErrorMessage(null);
@@ -62,38 +48,58 @@ export const UploadPage: React.FC<UploadPageProps> = ({ onAssessmentComplete }) 
       return;
     }
 
-    setIsProcessing(true);
+    setIsSubmitting(true);
+    setErrorMessage(null);
 
     try {
-      const assessmentData = await processAssessment(qpFileItem.file, ansFileItem.file);
+      const jobResponse = await startAssessmentJob(qpFileItem.file, ansFileItem.file);
+      setIsSubmitting(false);
 
-      setCurrentStageIndex(7);
-      addAssessment(assessmentData);
-
-      if (onAssessmentComplete) {
-        onAssessmentComplete(assessmentData);
+      if (jobResponse.jobId) {
+        localStorage.setItem("active_assessment_job_id", jobResponse.jobId);
+        navigate(`/exams/processing/${jobResponse.jobId}`);
+      } else {
+        throw new Error("Job creation failed: No job ID returned from server.");
       }
-
-      setIsProcessing(false);
-      navigate(`/exams/assessment/${assessmentData.id}`);
     } catch (err: any) {
-      setIsProcessing(false);
+      setIsSubmitting(false);
       setErrorMessage(
-        err.message || "An error occurred during AI processing. Please check file format and try again."
+        err?.message || "An error occurred while launching processing job. Please verify file format and try again."
       );
     }
   };
 
-  if (isProcessing) {
-    return <ProcessingScreen currentStageIndex={currentStageIndex} />;
-  }
-
-  const isReady = Boolean(qpFileItem && ansFileItem);
+  const isReady = Boolean(qpFileItem && ansFileItem && !isSubmitting);
 
   return (
     <div className="flex-1 bg-gradient-to-b from-zinc-50 via-white to-zinc-50 dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-950 flex flex-col items-center justify-center p-4 sm:p-8 min-h-[calc(100vh-4rem)] font-sans transition-colors duration-200">
       <div className="max-w-3xl w-full flex flex-col items-center text-center space-y-6">
         
+        {/* Active Job Notification Banner */}
+        {activeJobId && (
+          <div className="w-full max-w-2xl bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900/60 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-xs">
+            <div className="flex items-center gap-3 text-left">
+              <Sparkles className="w-5 h-5 text-orange-500 shrink-0" />
+              <div>
+                <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                  Assessment Processing in Progress
+                </h4>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">
+                  Job #{activeJobId}
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => navigate(`/exams/processing/${activeJobId}`)}
+              className="bg-orange-600 hover:bg-orange-500 text-white font-bold"
+            >
+              <span>View Job Progress</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        )}
+
         {/* Central AI Avatar Graphic Badge */}
         <div className="relative flex items-center justify-center my-2">
           <div className="absolute w-28 h-28 rounded-full bg-orange-500/10 dark:bg-orange-500/20 animate-ping opacity-75" />
@@ -158,8 +164,17 @@ export const UploadPage: React.FC<UploadPageProps> = ({ onAssessmentComplete }) 
             onClick={handleStartProcess}
             className="w-56 shadow-md hover:scale-105 active:scale-95 transition-all font-bold text-sm bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-zinc-900"
           >
-            <span>Start Mapping</span>
-            <ArrowRight className="w-4 h-4 ml-1" />
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Launching Job...</span>
+              </>
+            ) : (
+              <>
+                <span>Start Mapping</span>
+                <ArrowRight className="w-4 h-4 ml-1" />
+              </>
+            )}
           </Button>
         </div>
       </div>
