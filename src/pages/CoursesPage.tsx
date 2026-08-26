@@ -11,23 +11,6 @@ interface CourseItem {
   assessmentsCount: number;
 }
 
-const DEFAULT_COURSES: CourseItem[] = [
-  {
-    id: "course_default_1",
-    name: "Grade 10 Mathematics - Section A",
-    code: "MATH-101",
-    studentsCount: 32,
-    assessmentsCount: 4,
-  },
-  {
-    id: "course_default_2",
-    name: "Physics - Advanced Mechanics",
-    code: "PHY-202",
-    studentsCount: 28,
-    assessmentsCount: 2,
-  },
-];
-
 export const CoursesPage: React.FC = () => {
   const navigate = useNavigate();
   const [courses, setCourses] = useState<CourseItem[]>(() => {
@@ -35,12 +18,12 @@ export const CoursesPage: React.FC = () => {
       const saved = localStorage.getItem("veda_courses_list");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch (e) {
       console.warn("Failed to load courses from storage", e);
     }
-    return DEFAULT_COURSES;
+    return [];
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);

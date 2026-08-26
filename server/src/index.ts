@@ -10,7 +10,7 @@ import { getGeminiStatus } from "./services/gemini/gemini.js";
 
 dotenv.config();
 
-const app = express();
+export const app = express();
 const PORT = process.env.PORT || 3001;
 
 // CORS configuration for local and production hosts
@@ -56,6 +56,10 @@ if (fs.existsSync(clientDistPath) && fs.existsSync(indexPath)) {
   });
 }
 
-app.listen(PORT, () => {
-  console.log(`🚀 AI Assessment Mapper backend listening on http://localhost:${PORT}`);
-});
+if (process.env.VERCEL !== "1") {
+  app.listen(PORT, () => {
+    console.log(`🚀 AI Assessment Mapper backend listening on http://localhost:${PORT}`);
+  });
+}
+
+export default app;

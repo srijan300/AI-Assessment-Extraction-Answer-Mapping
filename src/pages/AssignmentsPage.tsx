@@ -11,23 +11,6 @@ interface AssignmentItem {
   submissionsCount: number;
 }
 
-const DEFAULT_ASSIGNMENTS: AssignmentItem[] = [
-  {
-    id: "assign_default_1",
-    title: "Unit Test 1 - Handwritten Answer Evaluation",
-    subject: "Mathematics",
-    dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-    submissionsCount: 1,
-  },
-  {
-    id: "assign_default_2",
-    title: "Midterm Physics Assessment",
-    subject: "Physics",
-    dueDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-    submissionsCount: 3,
-  },
-];
-
 export const AssignmentsPage: React.FC = () => {
   const navigate = useNavigate();
   const [assignments, setAssignments] = useState<AssignmentItem[]>(() => {
@@ -35,12 +18,12 @@ export const AssignmentsPage: React.FC = () => {
       const saved = localStorage.getItem("veda_assignments_list");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch (e) {
       console.warn("Failed to load assignments from storage", e);
     }
-    return DEFAULT_ASSIGNMENTS;
+    return [];
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
