@@ -18,8 +18,8 @@ const corsOrigin = process.env.CORS_ORIGIN || "*";
 app.use(cors({ origin: corsOrigin }));
 app.use(express.json({ limit: "50mb" }));
 
-// Health Check with safe Gemini status diagnostics
-app.get("/api/health", (_req, res) => {
+// Health Check handler
+const healthHandler = (_req: express.Request, res: express.Response) => {
   const geminiInfo = getGeminiStatus();
   res.json({
     status: "ok",
@@ -28,12 +28,20 @@ app.get("/api/health", (_req, res) => {
     configuredModel: geminiInfo.configuredModel,
     sdkInitialized: geminiInfo.sdkInitialized,
   });
-});
+};
 
-// API Routes
+app.get("/api/health", healthHandler);
+app.get("/health", healthHandler);
+
+// API Routes mounted on both /api prefix and root for full Vercel rewrite compatibility
 app.use("/api", processRouter);
+app.use("/", processRouter);
+
 app.use("/api", gradeRouter);
+app.use("/", gradeRouter);
+
 app.use("/api", assessmentRouter);
+app.use("/", assessmentRouter);
 
 // Static Client Asset Serving for Production Deployment (Express 5 SPA Fallback)
 const clientDistPath = path.resolve(process.cwd(), "dist");
